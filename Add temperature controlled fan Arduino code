@@ -1,0 +1,93 @@
+
+#include <DHT.h>
+#include <LiquidCrystal.h>
+
+// Pin Configuration
+#define DHTPIN 12
+#define DHTTYPE DHT11
+#define FAN_PIN 9
+
+// LCD: RS, EN, D4, D5, D6, D7
+LiquidCrystal lcd(7, 6, 5, 4, 3, 2);
+
+DHT dht(DHTPIN, DHTTYPE);
+
+// Temperature thresholds
+const float LOW_TEMP = 25.0;
+const float HIGH_TEMP = 35.0;
+
+void setup() {
+  Serial.begin(9600);
+
+  dht.begin();
+  lcd.begin(16, 2);
+
+  pinMode(FAN_PIN, OUTPUT);
+
+  lcd.print("Temperature Fan");
+  delay(2000);
+  lcd.clear();
+}
+
+void loop() {
+
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+
+  // Check sensor reading
+  if (isnan(temperature) || isnan(humidity)) {
+    lcd.setCursor(0, 0);
+    lcd.print("Sensor Error");
+    analogWrite(FAN_PIN, 0);
+    delay(2000);
+    return;
+  }
+
+  int fanSpeed = 0;
+
+  // Automatic fan speed control
+  if (temperature < LOW_TEMP) {
+    fanSpeed = 0;
+  }
+  else if (temperature < HIGH_TEMP) {
+    fanSpeed = map(temperature,
+                   LOW_TEMP,
+                   HIGH_TEMP,
+                   100,
+                   255);
+  }
+  else {
+    fanSpeed = 255;
+  }
+
+  // Control fan using PWM
+  analogWrite(FAN_PIN, fanSpeed);
+
+  // Display temperature
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: ");
+  lcd.print(temperature, 1);
+  lcd.print((char)223);
+  lcd.print("C   ");
+
+  // Display humidity and fan status
+  lcd.setCursor(0, 1);
+  lcd.print("Fan: ");
+
+  if (fanSpeed == 0) {
+    lcd.print("OFF       ");
+  } else {
+    lcd.print(map(fanSpeed, 0, 255, 0, 100));
+    lcd.print("%       ");
+  }
+
+  // Serial Monitor
+  Serial.print("Temperature: ");
+  Serial.print(temperature);
+  Serial.print(" C | Humidity: ");
+  Serial.print(humidity);
+  Serial.print(" % | Fan PWM: ");
+  Serial.println(fanSpeed);
+
+  delay(2000);
+}
